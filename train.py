@@ -1,31 +1,29 @@
-import torch
 from image_loader import *
-from SNet import *
 import torch.utils.data as data
+from SNet import *
 import os
 
-#hyper parameters
+# hyper parameters
 BATCH_SIZE = 1
 BASE_LR = 1e-3
 G_LR = 1e-5
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device_ids = [0,2,3,4]
 
 normalization_mean = torch.tensor([0.485, 0.456, 0.406])
 normalization_std = torch.Tensor([0.229, 0.224, 0.225])
 
 
 def make_label(image, label):
-    imagelog = torch.log(image + 1).to(device)
-    labellog = torch.log(label + 1).to(device)
-    target = torch.abs(torch.add(imagelog, -1, labellog)).to(device)
-    target *= 3
-    return target
+    image_log = torch.log(image + 1).to(device)
+    label_log = torch.log(label + 1).to(device)
+    result = torch.abs(torch.add(image_log, -1, label_log)).to(device)
+    result *= 3
+    return result
 
 
-def Normalization(input, mean, std):
+def normalize(input, mean, std):
     m = torch.tensor(mean).view(-1, 1, 1).to(device)
     s = torch.tensor(std).view(-1, 1, 1).to(device)
     output = (input - m) / s
@@ -56,7 +54,7 @@ def single_gpu_train():
             label = label.to(device)
             target = make_label(image, label)
 
-            norm_image = Normalization(image, normalization_mean, normalization_std)
+            norm_image = normalize(image, normalization_mean, normalization_std)
             prediction = net(norm_image)
             loss = criterion(prediction, target)
 
@@ -95,7 +93,7 @@ def multi_gpu_train():
         for i, data in enumerate(data_loader, 0):
             image, label = data
             target = make_label(image, label)
-            norm_image = Normalization(image, normalization_mean, normalization_std)
+            norm_image = normalize(image, normalization_mean, normalization_std)
 
             img = Variable(norm_image, requires_grad=True).cuda(device_ids[0])
             tar = Variable(target).cuda(device_ids[0])
