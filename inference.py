@@ -5,7 +5,8 @@ from AGNET import *
 if __name__ == '__main__':
 
     net = GNet()
-    net.load_state_dict(torch.load('params_18899.pkl'))
+    model_filename = "model_best.pkl"
+    net.load_state_dict(torch.load(model_filename))
 
     img_path = "/Users/ankitakalra/Documents/unshrouded_data/2208385.jpg"
     image = Image.open(img_path)

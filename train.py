@@ -1,6 +1,7 @@
 from shadow_dataset_loader import *
 import torch.utils.data as data
 from SNet import *
+from AGNET import *
 import os
 from torch.autograd import Variable
 
@@ -8,7 +9,8 @@ from torch.autograd import Variable
 BATCH_SIZE = 1
 BASE_LR = 1e-3
 G_LR = 1e-5
-NUM_EPOCHS = 100
+NUM_EPOCHS = 5
+MODEL_SAVE_RATE=2
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -33,7 +35,7 @@ def normalize(input, mean, std):
 
 
 
-def local_train():
+def local_s_train():
 
     #Initilization
     preprocess = transforms.Compose([
@@ -48,6 +50,51 @@ def local_train():
                                                batch_size=1)
 
     net = SNet()
+    net = net.to(device)
+
+    gparam = list(map(id, net.features.parameters()))
+    base_param = filter(lambda p: id(p) not in gparam, net.parameters())
+
+    optimizer = torch.optim.SGD([
+        {'params': base_param},
+        {'params': net.features.parameters(), 'lr': G_LR}], lr = BASE_LR, momentum=0.9, weight_decay=5e-4)
+    criterion = torch.nn.MSELoss()
+
+    for epoch in range(NUM_EPOCHS):
+        for i, data in enumerate(train_loader, 0):
+            image, label = data
+            image = image.to(device)
+            label = label.to(device)
+            target = make_label(image, label)
+
+            norm_image = normalize(image, normalization_mean, normalization_std)
+            prediction = net(norm_image)
+            loss = criterion(prediction, target)
+
+            print('Epoch: %d | iter: %d | train loss: %.10f' % (epoch, i, float(loss)))
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        if epoch % 10 == 0:
+            model_name = os.path.join('model/model_%d.pkl' % epoch)
+            torch.save(net.state_dict(), model_name)
+
+def local_a_train():
+
+    #Initilization
+    preprocess = transforms.Compose([
+        transforms.Resize(120),
+        transforms.ToTensor(),
+    ])
+
+    data_dir = os.path.join('/Users/ankitakalra/', 'Documents/GitHub/DeshadownetPytorch/data/')
+    train_folder = CustomShadowPairDataset(os.path.join(data_dir, 'original_image/'), preprocess)
+    print(data_dir,train_folder)
+    train_loader = torch.utils.data.DataLoader(train_folder,
+                                               batch_size=1)
+
+    net = ANet()
     net = net.to(device)
 
     gparam = list(map(id, net.features.parameters()))
@@ -127,9 +174,9 @@ def gpu_train():
 
             print('Epoch: %d | iter: %d | train loss: %.10f' % (epoch, i, float(loss)))
 
-        if epoch % 1 == 0:
+        if epoch % 100 == 0:
             model_name = os.path.join("./model/model_%d.pkl" % epoch)
             torch.save(net, model_name)
 
-
-local_train()
+local_a_train()
+local_s_train()
