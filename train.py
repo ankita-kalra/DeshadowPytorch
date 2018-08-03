@@ -2,6 +2,7 @@ from shadow_dataset_loader import *
 import torch.utils.data as data
 from SNet import *
 import os
+from torch.autograd import Variable
 
 # hyper parameters
 BATCH_SIZE = 1
@@ -32,22 +33,22 @@ def normalize(input, mean, std):
 
 
 
-def single_gpu_train():
-    # Initilization
+def local_train():
+
+    #Initilization
     preprocess = transforms.Compose([
         transforms.Resize(120),
         transforms.ToTensor(),
     ])
-    use_gpu = torch.cuda.is_available()
-    data_dir = os.path.join(os.path.expanduser("~"), '/Documents/GitHub/DeshadownetPytorch/data/')
-    train_folder = CustomShadowPairDataset(os.path.join(data_dir, 'original_image'), preprocess)
+
+    data_dir = os.path.join('/Users/ankitakalra/', 'Documents/GitHub/DeshadownetPytorch/data/')
+    train_folder = CustomShadowPairDataset(os.path.join(data_dir, 'original_image/'), preprocess)
     print(data_dir,train_folder)
     train_loader = torch.utils.data.DataLoader(train_folder,
                                                batch_size=1)
-    
+
     net = SNet()
     net = net.to(device)
-    #print(net)
 
     gparam = list(map(id, net.features.parameters()))
     base_param = filter(lambda p: id(p) not in gparam, net.parameters())
@@ -79,7 +80,7 @@ def single_gpu_train():
 
 
 
-def multi_gpu_train():
+def gpu_train():
 
     # Initilization
     preprocess = transforms.Compose([
@@ -92,13 +93,12 @@ def multi_gpu_train():
     train_loader = torch.utils.data.DataLoader(train_folder,
                                                batch_size=1, shuffle=True,
                                                num_workers=2, pin_memory=False)
-    normalization_mean = torch.tensor([0.485, 0.456, 0.406]).cuda(device_ids[0])
-    normalization_std = torch.Tensor([0.229, 0.224, 0.225]).cuda(device_ids[0])
+    normalization_mean = torch.tensor([0.485, 0.456, 0.406]).cuda(0)
+    normalization_std = torch.Tensor([0.229, 0.224, 0.225]).cuda(0)
 
     net = SNet()
-
-    net.cuda(device_ids[0])
-    net = nn.DataParallel(net, device_ids=device_ids)
+    if use_gpu:
+        net.cuda()
 
     gparam = list(map(id, net.module.features.parameters()))
     base_param = filter(lambda p: id(p) not in gparam, net.parameters())
@@ -107,16 +107,16 @@ def multi_gpu_train():
         {'params': net.module.features.parameters(), 'lr': G_LR}], lr=BASE_LR, momentum=0.9, weight_decay=5e-4)
 
     criterion = torch.nn.MSELoss()
-    optimizer = nn.DataParallel(optimizer, device_ids=device_ids)
+    optimizer = nn.DataParallel(optimizer, device_ids=0)
 
     for epoch in range(NUM_EPOCHS):
-        for i, data in enumerate(data_loader, 0):
+        for i, data in enumerate(train_loader, 0):
             image, label = data
             target = make_label(image, label)
             norm_image = normalize(image, normalization_mean, normalization_std)
 
-            img = Variable(norm_image, requires_grad=True).cuda(device_ids[0])
-            tar = Variable(target).cuda(device_ids[0])
+            img = Variable(norm_image, requires_grad=True).cuda(0)
+            tar = Variable(target).cuda(0)
 
             prediction = net(img)
             loss = criterion(prediction, tar)
@@ -132,4 +132,4 @@ def multi_gpu_train():
             torch.save(net, model_name)
 
 
-single_gpu_train()
+local_train()

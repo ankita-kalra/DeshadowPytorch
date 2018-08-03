@@ -10,10 +10,14 @@ IMG_EXTENSIONS = [
     '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP',
 ]
 
+def is_image_file(filename):
+    return any(filename.endswith(extension) for extension in IMG_EXTENSIONS)
+
 def make_shadow_pair_dataset(dir):
     images = []
     srimages = []
-    dataset = []
+    print(dir)
+    print(os.walk(dir))
     for root, _, fnames in sorted(os.walk(dir)):
         for fname in fnames:
             if is_image_file(fname):
@@ -21,10 +25,10 @@ def make_shadow_pair_dataset(dir):
                 srimpath = path.replace("original_image","sr_image")
                 images.append(path)
                 srimages.append(srimpath)
-    #dataset.append([images,srimages])
+
     return images,srimages
 
- #cant be done during training, as tensor is the input   
+
 def rgb_loader(path):
     return Image.open(path).convert('RGB')
 
@@ -36,7 +40,6 @@ class CustomShadowPairDataset(data.Dataset):
     def __init__(self, root, transform=None, target_transform=None,
                  rgb_loader=rgb_loader, gray_loader=gray_loader):
         imgs,srimages = make_shadow_pair_dataset(root)
-        #print(dataset)
         if len(imgs) == 0:
             raise(RuntimeError("Found 0 images in subfolders of: " + root + "\n"
                                "Supported image extensions are: " + ",".join(IMG_EXTENSIONS)))
