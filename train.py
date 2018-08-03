@@ -1,4 +1,4 @@
-from image_loader import *
+from shadow_dataset_loader import *
 import torch.utils.data as data
 from SNet import *
 import os
@@ -7,6 +7,7 @@ import os
 BATCH_SIZE = 1
 BASE_LR = 1e-3
 G_LR = 1e-5
+NUM_EPOCHS = 100
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -32,12 +33,21 @@ def normalize(input, mean, std):
 
 
 def single_gpu_train():
-    dataset = mytraindata("./data/image", "./data/label", True, True)
-    data_loader = data.DataLoader(dataset, batch_size= BATCH_SIZE)
-
+    # Initilization
+    preprocess = transforms.Compose([
+        transforms.Resize(120),
+        transforms.ToTensor(),
+    ])
+    use_gpu = torch.cuda.is_available()
+    data_dir = os.path.join(os.path.expanduser("~"), '/Documents/GitHub/DeshadownetPytorch/data/')
+    train_folder = CustomShadowPairDataset(os.path.join(data_dir, 'original_image'), preprocess)
+    print(data_dir,train_folder)
+    train_loader = torch.utils.data.DataLoader(train_folder,
+                                               batch_size=1)
+    
     net = SNet()
     net = net.to(device)
-    print(net)
+    #print(net)
 
     gparam = list(map(id, net.features.parameters()))
     base_param = filter(lambda p: id(p) not in gparam, net.parameters())
@@ -47,8 +57,8 @@ def single_gpu_train():
         {'params': net.features.parameters(), 'lr': G_LR}], lr = BASE_LR, momentum=0.9, weight_decay=5e-4)
     criterion = torch.nn.MSELoss()
 
-    for epoch in range(100000):
-        for i, data in enumerate(data_loader, 0):
+    for epoch in range(NUM_EPOCHS):
+        for i, data in enumerate(train_loader, 0):
             image, label = data
             image = image.to(device)
             label = label.to(device)
@@ -63,15 +73,25 @@ def single_gpu_train():
             loss.backward()
             optimizer.step()
 
-        if epoch % 100 == 99:
+        if epoch % 10 == 0:
             model_name = os.path.join('model/model_%d.pkl' % epoch)
             torch.save(net.state_dict(), model_name)
 
 
 
 def multi_gpu_train():
-    dataset = mytraindata("./data/image", "./data/label", True, True)
-    data_loader = DATA.DataLoader(dataset, batch_size=BATCH_SIZE)
+
+    # Initilization
+    preprocess = transforms.Compose([
+        transforms.Resize(120),
+        transforms.ToTensor(),
+    ])
+    use_gpu = torch.cuda.is_available()
+    data_dir = os.path.join(os.path.expanduser("~"), 'Documents/Github/DeshadownetPytorch/data/')
+    train_folder = CustomShadowPairDataset(os.path.join(data_dir, 'original_images'), preprocess)
+    train_loader = torch.utils.data.DataLoader(train_folder,
+                                               batch_size=1, shuffle=True,
+                                               num_workers=2, pin_memory=False)
     normalization_mean = torch.tensor([0.485, 0.456, 0.406]).cuda(device_ids[0])
     normalization_std = torch.Tensor([0.229, 0.224, 0.225]).cuda(device_ids[0])
 
@@ -89,7 +109,7 @@ def multi_gpu_train():
     criterion = torch.nn.MSELoss()
     optimizer = nn.DataParallel(optimizer, device_ids=device_ids)
 
-    for epoch in range(100000):
+    for epoch in range(NUM_EPOCHS):
         for i, data in enumerate(data_loader, 0):
             image, label = data
             target = make_label(image, label)
