@@ -4,11 +4,10 @@ ___________________________________
 
 Important Files
 
-I. train.py
-
-train functions-
-	local_s_train()- For training SNet, used to extract semantic contextual features.
-	local_a_train()- For training ANet, used to do features which are more relevant for appearance modelling.
+I. train.py and its functions-
+	
+	1. local_s_train()- For training SNet, used to extract semantic contextual features.
+	2. local_a_train()- For training ANet, used to do features which are more relevant for appearance modelling.
 
 II. inference.py
 
