@@ -6,15 +6,14 @@ from GNet import *
 from conv8_concat import *
 import os
 from torch.autograd import Variable
-import cudnn
+from torch.backends import cudnn
 
 # hyper parameters
 BATCH_SIZE = 1
 BASE_LR = 1e-3
 G_LR = 1e-5
 NUM_EPOCHS = 5
-MODEL_SAVE_RATE=2
-
+MODEL_SAVE_RATE = 2
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -37,19 +36,17 @@ def normalize(input, mean, std):
     return output
 
 
-
 def both_sa_train():
-
-    #Initilization
+    # Initilization
     preprocess = transforms.Compose([
         transforms.Resize(120),
         transforms.ToTensor(),
     ])
 
-    data_dir = os.path.join('/home/ankita/', 'WeedingSandbox/sandbox/shadow_removal/deshadownet/data/')
+    data_dir = './data/'#os.path.join('/home/ankita/', 'WeedingSandbox/sandbox/shadow_removal/deshadownet/data/')
     print(data_dir)
     train_folder = CustomShadowPairDataset(os.path.join(data_dir, 'original_image/'), preprocess)
-    print(data_dir,train_folder)
+    print(data_dir, train_folder)
     train_loader = torch.utils.data.DataLoader(train_folder,
                                                batch_size=1)
     use_gpu = torch.cuda.is_available()
@@ -58,23 +55,23 @@ def both_sa_train():
     if use_gpu:
         a_net.cuda()
         a_net = torch.nn.DataParallel(a_net, device_ids=range(torch.cuda.device_count()))
-        #cudnn.benchmark = True
+        cudnn.benchmark = True
 
-    #a_net = a_net.to(device)
+    # a_net = a_net.to(device)
 
     s_net = SNet()
     if use_gpu:
         s_net.cuda()
         s_net = torch.nn.DataParallel(s_net, device_ids=range(torch.cuda.device_count()))
-        #cudnn.benchmark = True
-    #s_net = s_net.to(device)
+        cudnn.benchmark = True
+    # s_net = s_net.to(device)
 
     gparam = list(map(id, s_net.features.parameters()))
     base_param = filter(lambda p: id(p) not in gparam, s_net.parameters())
 
     optimizer = torch.optim.SGD([
         {'params': base_param},
-        {'params': s_net.features.parameters(), 'lr': G_LR}], lr = BASE_LR, momentum=0.9, weight_decay=5e-4)
+        {'params': s_net.features.parameters(), 'lr': G_LR}], lr=BASE_LR, momentum=0.9, weight_decay=5e-4)
     criterion = torch.nn.MSELoss()
 
     for epoch in range(NUM_EPOCHS):
@@ -84,12 +81,17 @@ def both_sa_train():
             label = label.to(device)
             target = make_label(image, label)
 
+            if use_gpu:
+                image = image.cuda()
+                target = target.cuda()
+
+
             norm_image = normalize(image, normalization_mean, normalization_std)
-            
+
             prediction_a = a_net(norm_image)
             prediction_s = s_net(norm_image)
-            prediction = concatenate_shadow_matte(prediction_s,prediction_a)
-            #print(prediction.shape)
+            prediction = concatenate_shadow_matte(prediction_s, prediction_a)
+            # print(prediction.shape)
             loss = criterion(prediction, target)
 
             print('Epoch: %d | iter: %d | train loss: %.10f' % (epoch, i, float(loss)))
@@ -103,9 +105,9 @@ def both_sa_train():
             model_name = os.path.join('model/model_both_s_%d.pkl' % epoch)
             torch.save(s_net.state_dict(), model_name)
 
-def only_s_train():
 
-    #Initilization
+def only_s_train():
+    # Initilization
     preprocess = transforms.Compose([
         transforms.Resize(120),
         transforms.ToTensor(),
@@ -114,7 +116,7 @@ def only_s_train():
     data_dir = os.path.join('/home/ankita/', 'WeedingSandbox/sandbox/shadow_removal/deshadownet/data/')
     print(data_dir)
     train_folder = CustomShadowPairDataset(os.path.join(data_dir, 'original_image/'), preprocess)
-    print(data_dir,train_folder)
+    print(data_dir, train_folder)
     train_loader = torch.utils.data.DataLoader(train_folder,
                                                batch_size=1)
     use_gpu = torch.cuda.is_available()
@@ -122,14 +124,14 @@ def only_s_train():
     s_net = SNet()
     if use_gpu:
         s_net.cuda()
-    #s_net = s_net.to(device)
+    # s_net = s_net.to(device)
 
     gparam = list(map(id, s_net.features.parameters()))
     base_param = filter(lambda p: id(p) not in gparam, s_net.parameters())
 
     optimizer = torch.optim.SGD([
         {'params': base_param},
-        {'params': s_net.features.parameters(), 'lr': G_LR}], lr = BASE_LR, momentum=0.9, weight_decay=5e-4)
+        {'params': s_net.features.parameters(), 'lr': G_LR}], lr=BASE_LR, momentum=0.9, weight_decay=5e-4)
     criterion = torch.nn.MSELoss()
 
     for epoch in range(NUM_EPOCHS):
@@ -140,7 +142,7 @@ def only_s_train():
             target = make_label(image, label)
 
             norm_image = normalize(image, normalization_mean, normalization_std)
-            
+
             prediction_s = s_net(norm_image)
             print(prediction_s.shape)
             loss = criterion(prediction_s, target)
@@ -156,8 +158,7 @@ def only_s_train():
 
 
 def only_a_train():
-
-    #Initilization
+    # Initilization
     preprocess = transforms.Compose([
         transforms.Resize(120),
         transforms.ToTensor(),
@@ -166,7 +167,7 @@ def only_a_train():
     data_dir = os.path.join('/home/ankita/', 'WeedingSandbox/sandbox/shadow_removal/deshadownet/data/')
     print(data_dir)
     train_folder = CustomShadowPairDataset(os.path.join(data_dir, 'original_image/'), preprocess)
-    print(data_dir,train_folder)
+    print(data_dir, train_folder)
     train_loader = torch.utils.data.DataLoader(train_folder,
                                                batch_size=1)
     use_gpu = torch.cuda.is_available()
@@ -174,14 +175,14 @@ def only_a_train():
     a_net = ANet()
     if use_gpu:
         a_net.cuda()
-    #a_net = a_net.to(device)
+    # a_net = a_net.to(device)
 
     gparam = list(map(id, a_net.features.parameters()))
     base_param = filter(lambda p: id(p) not in gparam, net.parameters())
 
     optimizer = torch.optim.SGD([
         {'params': base_param},
-        {'params': a_net.features.parameters(), 'lr': G_LR}], lr = BASE_LR, momentum=0.9, weight_decay=5e-4)
+        {'params': a_net.features.parameters(), 'lr': G_LR}], lr=BASE_LR, momentum=0.9, weight_decay=5e-4)
     criterion = torch.nn.MSELoss()
 
     for epoch in range(NUM_EPOCHS):
@@ -192,7 +193,7 @@ def only_a_train():
             target = make_label(image, label)
 
             norm_image = normalize(image, normalization_mean, normalization_std)
-            
+
             prediction_a = a_net(norm_image)
             print(prediction_a.shape)
             loss = criterion(prediction_a, target)
@@ -208,7 +209,6 @@ def only_a_train():
 
 
 def gpu_train():
-
     # Initilization
     preprocess = transforms.Compose([
         transforms.Resize(120),
