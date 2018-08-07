@@ -58,7 +58,7 @@ def both_sa_train():
     if use_gpu:
         a_net.cuda()
         a_net = torch.nn.DataParallel(a_net, device_ids=range(torch.cuda.device_count()))
-        cudnn.benchmark = True
+        #cudnn.benchmark = True
 
     #a_net = a_net.to(device)
 
@@ -66,7 +66,7 @@ def both_sa_train():
     if use_gpu:
         s_net.cuda()
         s_net = torch.nn.DataParallel(s_net, device_ids=range(torch.cuda.device_count()))
-        cudnn.benchmark = True
+        #cudnn.benchmark = True
     #s_net = s_net.to(device)
 
     gparam = list(map(id, s_net.features.parameters()))
