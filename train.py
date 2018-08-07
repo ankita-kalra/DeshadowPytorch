@@ -176,12 +176,12 @@ def only_a_train():
         a_net.cuda()
     #a_net = a_net.to(device)
 
-    gparam = list(map(id, net.features.parameters()))
+    gparam = list(map(id, a_net.features.parameters()))
     base_param = filter(lambda p: id(p) not in gparam, net.parameters())
 
     optimizer = torch.optim.SGD([
         {'params': base_param},
-        {'params': net.features.parameters(), 'lr': G_LR}], lr = BASE_LR, momentum=0.9, weight_decay=5e-4)
+        {'params': a_net.features.parameters(), 'lr': G_LR}], lr = BASE_LR, momentum=0.9, weight_decay=5e-4)
     criterion = torch.nn.MSELoss()
 
     for epoch in range(NUM_EPOCHS):
